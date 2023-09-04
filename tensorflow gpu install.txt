@@ -1,0 +1,55 @@
+Совместимость:
+
+https://www.tensorflow.org/install/source_windows
+Version						Python version	Compiler	Build tools		cuDNN	CUDA
+tensorflow_gpu-2.10.0		3.7-3.10		MSVC 2019	Bazel 5.1.1		8.1		11.2
+
+Встречал описание, что подходят CUDA 11.8 и cuDNN 8.6. 
+
+У меня работает при установленных:
+v10.0
+v11.0
+v11.2
+v11.5
+Экперементально проверено - может работать и на 11.2 и на 11.5. На 10.00 работать отказывается. На 11.0 не проверял
+
+
+CUDA:
+https://developer.nvidia.com/cuda-toolkit-archive
+
+
+cuDNN:
+https://developer.nvidia.com/rdp/cudnn-archive
+copy "include", "lib" and "bin" to CUDA install folder like C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.8\
+
+Recomended add to PATH:
+ 1) cuda folder 
+ 2) рекомендуется также
+	C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.8\bin
+	C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.8\libnvvp
+У меня добавлены:
+- в user variables:
+PATH		C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.5\bin
+PATH		C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.5\include
+PATH		C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.5\lib
+- system variablies:
+CUDA_PATH_V11_5		C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.5
+CUDA_PATH_V11_2		C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.2
+PATH				C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.2\bin
+
+Еще вот такая переменная стоит (нужна для PixInsight):
+TF_FORCE_GPU_ALLOW_GROWTH	true
+
+
+*******************************************************************
+Python virtual enviroment:
+*******************************************************************
+conda create –name tf_env python=3.10
+pip install --upgrade pip
+pip install "tensorflow<2.11"
+
+to test:
+python -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"
+
+If it returns something like following line, you have successfully installed TensorFlow with GPU support.
+[PhysicalDevice(name=’/physical_device:GPU:0′, device_type=’GPU’)

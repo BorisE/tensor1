@@ -1,0 +1,8 @@
+figures/
+figures_*/*
+figures_*
+figures_*/
+model-*/*
+models/
+models*/*
+*.csv
