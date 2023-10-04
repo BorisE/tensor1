@@ -44,8 +44,8 @@ TF_FORCE_GPU_ALLOW_GROWTH	true
 *******************************************************************
 Python virtual enviroment:
 *******************************************************************
-conda create –name tf_env python=3.10
-pip install --upgrade pip
+conda create –n tf_env python=3.10
+python -m pip install --upgrade pip
 pip install "tensorflow<2.11"
 
 to test:
