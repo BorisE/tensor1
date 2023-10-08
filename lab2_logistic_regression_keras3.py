@@ -1,4 +1,3 @@
-
 ##########################################################################################################################################################
 # MNIST Deep Neural Network exploration script
 # (C) Copyright 2023, Boris Emchenko
@@ -17,23 +16,41 @@
 # - csv file with tested hyperparameters and results
 # - graphs of accuracy/loss dynamics for all runs
 # - some other visualizations
+#
+# Tested on tensorflow 2.10, python 3.10
 ##########################################################################################################################################################
+from datetime import datetime
+start_time = datetime.now()
+import time
+
 import numpy as np
 from matplotlib import pyplot as plt
 
 import csv
 
-from datetime import datetime
-import time
-start_time = datetime.now()
-
 import os
 os.system("")
 CHEAD = '\033[92m'
+CWRONG = '\033[2;31;43m'
 CRED = '\033[91m'
 CYEL = '\033[33m'
-CWRONG = '\033[2;31;43m'
+CBLUE = '\033[94m'
+CPURPLE = '\033[95m'
+CDARKCYAN = '\033[36m'
+CLIGHTGREY = '\033[37m'
+CDARKGREY = '\033[90m'
+CBOLD = '\033[1m'
 CEND = '\033[0m'
+# https://i.stack.imgur.com/j7e4i.gif
+# https://stackoverflow.com/questions/287871/how-do-i-print-colored-text-to-the-terminal
+
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
+'''
+0 = all messages are logged (default behavior)
+1 = INFO messages are not printed
+2 = INFO and WARNING messages are not printed
+3 = INFO, WARNING, and ERROR messages are not printed
+'''
 
 import tensorflow as tf
 import keras
@@ -47,15 +64,14 @@ print(" Keras: ", keras.__version__)
 print(" Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
 print(" CUDA: ", sys_details["cuda_version"])
 print(" CUDNN: ", sys_details["cudnn_version"])
-print("*"*50)
-print(CEND)
+print("*"*50, CEND)
 
 
 # Load and split dataset
 def LoadDataset(random_state = None):
 
     # Load dataset
-    from tensorflow.keras.datasets import mnist
+    from keras.datasets import mnist
     (x_train, y_train), (x_test, y_test) = mnist.load_data()
 
     print ("Original dataset: ")
@@ -75,6 +91,7 @@ def LoadDataset(random_state = None):
     print(" x shape %s" % (str(x_all.shape)), end=" | ")
     print("y shape %s" % (str(y_all.shape)), end="")
     print()
+    print()
 
     # Split into train and other (with shuffle)
     x_train, x_test, y_train, y_test = train_test_split(x_all, y_all, test_size=0.2, random_state=random_state, stratify=y_all, shuffle=True)           #70% train, shuffle every run (random_state=None)
@@ -84,10 +101,11 @@ def LoadDataset(random_state = None):
     print ("Resplited dataset: ")
     print(" x_train shape %s: " % (str(x_train.shape)), end="\t")
     print (np.bincount(y_train))
-    print(" x_val shape %s:" % (str(x_val.shape)), end="\t")
+    print(" x_val shape %s: " % (str(x_val.shape)), end="\t\t")
     print (np.bincount(y_val))
-    print(" x_test shape %s:" % (str(x_test.shape)), end="\t")
+    print(" x_test shape %s:" % (str(x_test.shape)), end="\t\t")
     print (np.bincount(y_test))
+    print()
 
     return(x_train, y_train), (x_val, y_val), (x_test, y_test)
 
@@ -156,7 +174,7 @@ def DefineFFNNModel(layer1_neurons, layer2_neurons=0, layer3_neurons=0, layer4_n
     model.summary()
     return model
 
-def TrainModel(model, x_train, y_train, x_val, y_val, Num_epochs, ext_batch_size = 32, use_callbacks = False, model_file_path = ""):
+def Train_Model(model, x_train, y_train, x_val, y_val, Num_epochs=10, ext_batch_size = 32, auto_stop = False, model_file_path = None):
 
     print()
     print(CHEAD + "*"*5 + "Let's train model:" + "*"*5 + CEND)
@@ -171,24 +189,23 @@ def TrainModel(model, x_train, y_train, x_val, y_val, Num_epochs, ext_batch_size
         metrics=['accuracy'])
 
     # Patience is the number of epochs to wait before stopping the training process if there is no improvement in the model loss
-    if not os.path.exists(model_file_path):
-        os.makedirs(model_file_path)
-    
     # EarlyStopping - stop if loss stop decreasing
     # ModelCheckpoint - save models automatically
-    if (use_callbacks):
-        callbackslist = [
-             tf.keras.callbacks.EarlyStopping(patience=5, monitor='val_loss', verbose=1),
-             tf.keras.callbacks.ModelCheckpoint(
+    callbackslist =  []
+    if auto_stop:
+        callbackslist.append(tf.keras.callbacks.EarlyStopping(patience=5, monitor='val_loss', verbose=1))
+    if model_file_path != None:
+        if not os.path.exists(model_file_path):
+            os.makedirs(model_file_path)
+        callbackslist.append(
+            tf.keras.callbacks.ModelCheckpoint(
                 filepath=model_file_path + "/bestmodel.{epoch:02d}-{val_loss:.3f}",
                 save_weights_only=False,
                 monitor='val_loss',
                 mode='min',
                 verbose = 1,
                 save_best_only=True)
-        ]
-    else:
-        callbackslist = []
+        )
 
     hist = model.fit(x_train, y_train, 
                      validation_data = (x_val, y_val),
@@ -198,7 +215,7 @@ def TrainModel(model, x_train, y_train, x_val, y_val, Num_epochs, ext_batch_size
                      )
     return hist
 
-def TestPredict(model, x_test, y_test, batch_size=32):
+def Test_Model(model, x_test, y_test, batch_size=32):
 
     print()
     print(CHEAD + "*"*5 + "Let's test the model:" + "*"*5 + CEND)
@@ -210,24 +227,25 @@ def TestPredict(model, x_test, y_test, batch_size=32):
     
     return loss, accuracy
 
-def VisualizeTest_Text(model, x_dataset,  y_dataset, n_to_show=10):
-
-    erroneous = []
+def Test_makepredictions(model, x_dataset):
 
     print()
-    print(CHEAD + "*"*5 + "Let's dispaly some test results:" + "*"*5 + CEND)
-    
-    print("Calculate prediction for a test set...")
+    print(CHEAD + "*"*5 + "Calculate predictions:" + "*"*5 + CEND)
+
     predictions_raw = model.predict(x_dataset)
     predictions = np.argmax(predictions_raw, axis=1)
 
+    print("Prediction_raw result: " + str(predictions_raw.shape))
+    print("Prediction result: " + str(predictions.shape))
     np.set_printoptions(precision=2, suppress=True)
-
-    print("Prediction result: " + str(predictions_raw.shape))
     print(predictions_raw)
     
+    return predictions_raw, predictions
+def Test_VisualizeText(predictions,  y_dataset, predictions_raw, n_to_show=10):
+
+    erroneous = []
     print()
-    print (CHEAD + "*"*20 + CEND)
+    print(CHEAD + "*"*5 + "Let's visualize some test results:" + "*"*5 + CEND)
     #print ('\033[2;31;43m' + "*****" + '\033[0m')
     
     pred_sample = np.random.choice(np.arange(len(predictions)), size = n_to_show, replace=False)
@@ -246,9 +264,9 @@ def VisualizeTest_Text(model, x_dataset,  y_dataset, n_to_show=10):
     print()
     print("Wrong %s samples out of %s, accuracy = %.1f %%" % (cntwrong, n_to_show, (1-cntwrong/n_to_show)*100))
 
-    return predictions, erroneous
+    return erroneous
 
-def VisualizeTest_Graph(predictions, x_dataset, y_dataset, list_to_show):
+def Test_VisualizeGraph(predictions, x_dataset, y_dataset, list_to_show):
 
     n_to_show = len(list_to_show)
     fig = plt.figure(figsize=(15, 3))
@@ -280,9 +298,7 @@ def VisualizeTest_Graph(predictions, x_dataset, y_dataset, list_to_show):
 
         ax.imshow(img, cmap='binary')
 
-    plt.show()
-
-def VisualizeTest_ConfusionMatrix(predictions, y_dataset):
+def VisualizeTest_ConfusionMatrix(predictions, y_dataset, folder_to_save = None):
     # Convert one-hot encoded labels to integers.
     # Boris: not nesseccary for MNIST
     #y_test_integer_labels = tf.argmax(y_test, axis=1)
@@ -302,7 +318,9 @@ def VisualizeTest_ConfusionMatrix(predictions, y_dataset):
     plt.xlabel('Predicted')
     plt.ylabel('Truth')
 
-    plt.show()
+    if (folder_to_save != None):
+        plt.savefig(folder_to_save + "/confmatrix_" + modelname + '.png')
+
 
 def SaveStat (cnt, modelname, modelparameters, epochs, bs, activ, layer1_neurons, layer2_neurons, layer3_neurons, layer4_neurons, layer5_neurons, duration,  test_loss, test_accuracy, accuracy, loss, folder_to_save=""):
     
@@ -315,15 +333,16 @@ def SaveStat (cnt, modelname, modelparameters, epochs, bs, activ, layer1_neurons
             writer.writerow(["date","modelname", "parameters count", "epochs", "batch_size", "activation function", "L1 neurons", "L2 neurons", "L3 neurons", "L4 neurons", "L5 neurons", "run_time", "test_accuracy", "test_loss", "accuracy","loss"]) #header
         writer.writerow(row)
 
-def saveAccLossGraphs(hist, test_loss, test_accuracy, modelname, folder_to_save):
+def saveAccLossGraphs(hist, test_loss, test_accuracy, modelname="", folder_to_save = None):
     
-    dt = start_time.strftime("%Y%m%d_%H%M%S")
-    if not os.path.exists(folder_to_save):
-        os.makedirs(folder_to_save)
+    if (folder_to_save != None):
+        dt = start_time.strftime("%Y%m%d_%H%M%S")
+        if not os.path.exists(folder_to_save):
+            os.makedirs(folder_to_save)
 
     floss = plt.figure()
     floss.set_size_inches((15, 5))
-    plt.axis([1, len(hist.history['loss']) + 1, 0, 1])
+    plt.axis([1, len(hist.history['loss']) + 1, 0, 0.5])
     plt.plot(range(1, len(hist.history['loss']) + 1), hist.history['loss'])
     plt.plot(range(1, len(hist.history['val_loss']) + 1), hist.history['val_loss'])
     plt.plot([1, len(hist.history['val_loss']) + 1], [test_loss, test_loss], color='blue', linestyle='dashed', linewidth=1)
@@ -331,7 +350,12 @@ def saveAccLossGraphs(hist, test_loss, test_accuracy, modelname, folder_to_save)
     plt.xlabel('Epoch')
     plt.ylabel('Loss')
     plt.legend(['Loss', 'Validation Loss', "Test Loss"])
-    floss.savefig(folder_to_save + "/loss_" + modelname + '.png')
+    plt.text(1.1, 0.3, 
+                'test = %.3f' % test_loss,
+                fontsize=10, 
+                ha='left')
+    if (folder_to_save != None):
+        floss.savefig(folder_to_save + "/loss_" + modelname + '.png')
     #floss.show()
 
     facc = plt.figure()
@@ -344,7 +368,12 @@ def saveAccLossGraphs(hist, test_loss, test_accuracy, modelname, folder_to_save)
     plt.xlabel('Epoch')
     plt.ylabel('Accuracy')
     plt.legend(['Accuracy', 'Validation Accuracy', "Test Accuracy"])
-    facc.savefig(folder_to_save + "/acc_" + modelname + '.png')
+    plt.text(1.1, 0.9, 
+                'test = %.2f%%' % (test_accuracy*100.0),
+                fontsize=10, 
+                ha='left')
+    if (folder_to_save != None):
+        facc.savefig(folder_to_save + "/acc_" + modelname + '.png')
     #facc.show()
 
     #plt.show()
@@ -393,9 +422,9 @@ if __name__ == "__main__":
             for layer3_neurons in l3_range:
                 for layer4_neurons in l4_range:
                     for layer5_neurons in l5_range:
-                        for epochs in epochs_range:
+                        for default_Epochs in epochs_range:
                             for activ in activations_range:
-                                for bs in batchsize_range:
+                                for default_BatchSize in batchsize_range:
 
                                     start_time_train = datetime.now()
                                     cnt = cnt + 1
@@ -409,16 +438,16 @@ if __name__ == "__main__":
 
                                     dt = start_time.strftime("%Y%m%d_%H%M%S")
                                     model_folder = "model_" + dt
-                                    modelname = "model-e_%s-bs_%s-act_%s-l1_%s-l2_%s-l3_%s-l4_%s-l5_%s" % (epochs, bs, activ, layer1_neurons, layer2_neurons, layer3_neurons, layer4_neurons, layer5_neurons)
+                                    modelname = "model-e_%s-bs_%s-act_%s-l1_%s-l2_%s-l3_%s-l4_%s-l5_%s" % (default_Epochs, default_BatchSize, activ, layer1_neurons, layer2_neurons, layer3_neurons, layer4_neurons, layer5_neurons)
                                     print(CHEAD + "%s" % (modelname) + CEND)
 
 
                                     # Define model
                                     model = DefineFFNNModel(layer1_neurons, layer2_neurons, layer3_neurons, layer4_neurons, layer5_neurons, layer_activation =activ)
                                     #Train model
-                                    hist = TrainModel(model, x_train=x_train, y_train=y_train, x_val=x_val, y_val=y_val, Num_epochs=epochs, ext_batch_size=bs, model_file_path=model_folder)
+                                    hist = Train_Model(model, x_train=x_train, y_train=y_train, x_val=x_val, y_val=y_val, Num_epochs=default_Epochs, ext_batch_size=default_BatchSize, model_file_path=model_folder)
                                     # Test model
-                                    test_loss, test_accuracy = TestPredict(model, x_test, y_test)
+                                    test_loss, test_accuracy = Test_Model(model, x_test, y_test)
 
                                     # SaveModel
                                     #model.save(model_folder + "\\" + modelname, overwrite=True)
@@ -426,7 +455,7 @@ if __name__ == "__main__":
                                     duration = datetime.now() - start_time_train
                                     accuracy = hist.history['accuracy']
                                     loss = hist.history['loss']
-                                    SaveStat(cnt, modelname, model.count_params(), epochs, bs, activ, layer1_neurons, layer2_neurons, layer3_neurons, layer4_neurons, layer5_neurons, duration, test_loss, test_accuracy, accuracy, loss, model_folder)
+                                    SaveStat(cnt, modelname, model.count_params(), default_Epochs, default_BatchSize, activ, layer1_neurons, layer2_neurons, layer3_neurons, layer4_neurons, layer5_neurons, duration, test_loss, test_accuracy, accuracy, loss, model_folder)
                                     saveAccLossGraphs(hist, test_loss, test_accuracy, modelname, model_folder)
 
                                     print()
@@ -436,10 +465,10 @@ if __name__ == "__main__":
 
 
 
-    predictions, erroneous = VisualizeTest_Text(model=model, x_dataset=x_test, y_dataset=y_test, n_to_show=10)
+    predictions, erroneous = Test_VisualizeText(model=model, x_dataset=x_test, y_dataset=y_test, n_to_show=10)
     print (erroneous)
 
-    VisualizeTest_Graph(predictions=predictions, x_dataset = x_test, y_dataset = y_test, list_to_show = erroneous)
+    Test_VisualizeGraph(predictions=predictions, x_dataset = x_test, y_dataset = y_test, list_to_show = erroneous)
 
 
     duration = datetime.now() - start_time
