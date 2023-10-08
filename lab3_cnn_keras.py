@@ -3,6 +3,7 @@
 # (C) Copyright 2023, Boris Emchenko
 #
 # Dataset: MNIST
+# Based on LAB2 (Logistic Regression module, almost full reuse)
 #
 # Output:
 # - csv file with tested hyperparameters and results
@@ -11,7 +12,7 @@
 #
 # Tested on tensorflow 2.10, python 3.10
 ##########################################################################################################################################################
-from lab2_logistic_regression_keras3 import *
+from boris_MNIST_module import *
 
 import tensorflow as tf
 import numpy as np
@@ -29,34 +30,6 @@ print(CDARKGREY,'Includes part: {}'.format(duration),CEND)
 # Default parameters
 default_Epochs = 50
 default_BatchSize = 128
-
-class Config:
-    modTrainMode = True                 # train model, default
-    modLoadModel = False                # don't train, load from disk
-    paramModelName = ""                 # model name to load from disk
-    optSaveModel = True                 # option: save model to disk after training
-    optDispalyGraphs = True             # option: don't dipslay plots after training
-    optSkipPredictions = True           # option: don't dipslay plots after training
-    optTargetEpochs = default_Epochs    # param: number of epochs
-    optBatchSize = default_BatchSize    # param: batch size
-    optTrainAutoStop = True             # param: auto stop training if val accurace stops increasing
-    optSkipTest = False                 # param: skip model testing
-    optDisplayLayers = False            # param: visualize filters/feature maps
-    @classmethod
-    def print(cls):
-        s=""
-        s=s+"modTrainMode: %s\n" % cls.modTrainMode
-        s=s+"modLoadModel: %s\n" % cls.modLoadModel
-        s=s+"paramModelName: %s\n" % cls.paramModelName
-        s=s+"optSaveModel: %s\n" % cls.optSaveModel
-        s=s+"optDispalyGraphs: %s\n" % cls.optDispalyGraphs
-        s=s+"optTargetEpochs: %s\n" % cls.optTargetEpochs
-        s=s+"optBatchSize: %s\n" % cls.optBatchSize
-        s=s+"optTrainAutoStop: %s\n" % cls.optTrainAutoStop
-        s=s+"optSkipTest: %s\n" % cls.optSkipTest
-        s=s+"optDisplayLayers: %s\n" % cls.optDisplayLayers
-        return s
-
 
 def AddConvBlock(model, filtersize=3, filternum = 1, convlayers=1, dropout=0.25):
 
@@ -188,78 +161,6 @@ def GetFeatureMaps(model, image, layer_idx=1):
         plt.imshow(features[0, : , : , i-1] , cmap='gray')
 
 
-def ParseCommandLine(Config):
-    # default parameters values
-    global default_Epochs, default_BatchSize
-        
-    print(CEND)
-    print ("Script:", CHEAD, sys.argv[0], CEND)
-    print("Arguments passed:", end = CHEAD)
-    for i in range(1, len(sys.argv)):
-        print(sys.argv[i], end = " ")
-    print()
-
-    print(CHEAD)
-
-    for i in range(1, len(sys.argv)):
-        if "train" in sys.argv[i]:
-            Config.modTrainMode = True
-            print ("Train mode ON")
-        elif "load" in sys.argv[i]:
-            Config.modLoadModel = True
-            Config.paramModelName = sys.argv[i + 1] if i+1<len(sys.argv) else ""
-            print ("Load model mode")
-        elif "help" in sys.argv[i]:
-            print ("Usage parameters:")
-            print (" train \t\t\t train the model and save it")
-            print (" --epochs \t\t number of epochs to train (default: %d)" % Config.optTargetEpochs)
-            print (" --batchsize \t\t size of batchsize duting train (default: %d)" % Config.optBatchSize)
-            print (" --forceallepochs \t\t force train process to run all specified epochs")
-            print (" load <d:/python...> \t load the model and run test")
-            print (" --skiptest \t\t skip model testing after training or loading")
-            print (" --skipsave \t\t don't save trained model")
-            print (" --skipgraph \t\t don't dispaly traininig results")
-            print (" --skippred \t\t don't make predictions with test vizualization")
-            print (" --displayers \t\t visualize layers filters/feature maps")
-            print (CEND)            
-            exit()
-
-        if "--skipsave" in sys.argv[i]:
-            Config.optSaveModel = False
-            print (" -- Disable saving trained model")
-        if "--skiptest" in sys.argv[i]:
-            Config.optSkipTest = True
-            print (" -- Disable test run for trained/load model")
-        if "--skipgraph" in sys.argv[i]:
-            Config.optDispalyGraphs = False
-            print (" -- Disable displaying training results on graphs")
-        if "--skippred" in sys.argv[i]:
-            Config.optSkipPredictions = True
-            print (" -- Disable predictiction vizualization for test dataset")
-        if "--forceallepochs" in sys.argv[i]:
-            Config.optTrainAutoStop = False
-            print (" -- Train process wouldn't stop automaically on loss stall and will run all specifies epochs")
-        if "--epochs" in sys.argv[i]:
-            Config.optTargetEpochs = sys.argv[i + 1] if i+1<len(sys.argv) else default_Epochs
-            Config.optTargetEpochs = int(Config.optTargetEpochs) if int(Config.optTargetEpochs)>0 else default_Epochs
-            print (" -- Set traing epochs to %d" % Config.optTargetEpochs)
-        if "--batchsize" in sys.argv[i]:
-            Config.optBatchSize = sys.argv[i + 1] if i+1<len(sys.argv) else default_BatchSize
-            Config.optBatchSize = int(Config.optBatchSize) if int(type(Config.optBatchSize))>0 else default_BatchSize
-            print (" -- Set traing batchsize to ", Config.optBatchSize)
-        if "--displayers" in sys.argv[i]:
-            Config.optDisplayLayers = True
-            print (" -- Visualize layers filters/feature maps")
-
-
-    if Config.modLoadModel:
-        Config.modTrainMode = False
-        if Config.paramModelName == "":
-            Config.paramModelName = "d:/#Dev disk/python/tensorflow-labs/model_20231003_010021/bestmodel.10-0.026"
-
-    print (CEND)
-
-    #modTrainMode, paramModelName, optSaveModel, optDispalyGraphs, optTargetEpochs, optBatchSize
 
 #################################################################################
 #   Main
@@ -270,7 +171,7 @@ if __name__ == "__main__":
     print (Config.print())
 
     # Load dataset
-    (x_train, y_train), (x_val, y_val), (x_test, y_test) = LoadDataset(random_state = 3)
+    (x_train, y_train), (x_val, y_val), (x_test, y_test) = LoadDataset(random_state = Config.paramDatasetShuffle)
 
     # Reshape data for ConvNet format (add fourth dimension with color channels)
     print("Reshaping for ConvNet...")
@@ -283,9 +184,6 @@ if __name__ == "__main__":
     print(" x_test shape %s" % (str(x_test.shape)))
     print()
 
-    print("First 5 test samples (shuffle footprint):")
-    print (y_test[:10])
-    print()
 
     #ViewSample(x_train, y_train, [0,1,2,3])
     
@@ -300,7 +198,7 @@ if __name__ == "__main__":
         # Define a model name/path if you want to save it
         if Config.optSaveModel:
             dt = start_time.strftime("%Y%m%d_%H%M%S")
-            modelfolder = "model_" + dt
+            modelfolder = "model_CNN_" + dt
             modelname = "CNN_test"
         else:
             modelfolder = None
@@ -328,19 +226,22 @@ if __name__ == "__main__":
         # SaveStat(cnt, modelname, model.count_params(), epochs, bs, activ, layer1_neurons, layer2_neurons, layer3_neurons, layer4_neurons, layer5_neurons, duration, test_loss, test_accuracy, accuracy, loss)
         saveAccLossGraphs(hist, test_loss, test_accuracy, modelname, modelfolder)
     else:
-        #model = LoadModel("d:/#Dev disk/python/tensorflow-labs/model_20231001_204005/bestmodel.06-0.032") #3x3 filters
-        #model = LoadModel("d:/#Dev disk/python/tensorflow-labs/model_20231003_002334/bestmodel.05-0.030") #5x5 without dropout
-        #model = LoadModel("d:/#Dev disk/python/tensorflow-labs/model_20231003_010021/bestmodel.10-0.026") #5x5 with dropout
+        # Load model
         model = LoadModel(Config.paramModelName)
+
         # Test model
-        test_loss, test_accuracy = Test_Model(model, x_test, y_test)
+        if Config.optSkipTest == False:
+            test_loss, test_accuracy = Test_Model(model, x_test, y_test)
+        else:
+            test_loss = test_accuracy = 0
         
+
     if not Config.optSkipPredictions:
         predictions_raw, predictions = Test_makepredictions(model=model, x_dataset=x_test)
         erroneous = Test_VisualizeText(predictions=predictions, predictions_raw=predictions_raw, y_dataset=y_test, n_to_show=100)
         if erroneous:
             Test_VisualizeGraph(predictions=predictions, x_dataset = x_test, y_dataset = y_test, list_to_show = erroneous)
-        VisualizeTest_ConfusionMatrix(predictions, y_test, modelfolder)
+        VisualizeTest_ConfusionMatrix(predictions, y_test, modelname, modelfolder)
 
     if Config.optDisplayLayers:
         #GetWeights(model, "Conv2D_3x3_1")
